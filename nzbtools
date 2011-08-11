@@ -1,0 +1,247 @@
+#!/usr/bin/perl
+
+use strict;
+use Number::Bytes::Human qw(format_bytes);
+use Time::Format qw(%time);
+use Term::ReadKey;
+use Data::Dumper;
+
+my $file_name;
+my $trytoguess;
+if ( $ARGV[1] ) {
+    $trytoguess = 1 if $ARGV[0] =~ m{-g};
+    $file_name = $ARGV[1];
+}
+else {
+    $file_name = $ARGV[0];
+}
+help() unless $file_name;
+
+my $timeformat = 'yyyy-mm-dd';
+my @exts = (
+    'nfo', 'nzb', 'par', 'rar', 'zip', 'mp3', 'avi', 'wmv',
+    'mpg', 'mpeg', 'jpg', 'jpeg', 'png', 'gif', 'iso', 'sfv',
+    'r\d\d',
+);
+my $totalbytes;
+my $bytes;
+my %groups;
+my $filecount;
+my %dates;
+my %posters;
+my %filetypes;
+my %files;  # 
+my $infile; # This flag shows that we are currently between file tags
+my $currentfile;
+my $currentfilename;
+my $currentfiledate;
+my $currentfileposter;
+my $guessedfilename;
+my $subject;
+my $segments;
+
+my $widthbytes       = 1;
+my $widthdate        = 1;
+my $widthname        = 1;
+my $widthguessedname = 1;
+my $widthsegments    = 1;
+my $widthposter      = 1;
+my $widthsubject     = 1;
+
+open INPUT, "<$file_name";
+while ( my $file = <INPUT> ) {
+    $groups{$1} = 1 if $file =~ m{<group>(.*)</group>};
+    if ( $file =~ m{<file.*>} ) {
+        $file =~ m{subject="(.*?)"};
+        $currentfilename = $1;
+
+        $subject = $1;
+        $subject =~ s{&#34;}{"}g;
+        if ( length($subject) > 44 ) {
+            my $subjectlength = length($subject);
+            $subject = substr($subject, 0, 21) . '...' . substr($subject, $subjectlength - 21, 21);
+        }
+
+        $filecount++;
+        $infile = 1;
+        $dates{$1} = 1 if $file =~ m{date="(.*?)"};
+        $currentfiledate = $1;
+        $posters{$1} = 1 if $file =~ m{poster="(.*?)"};
+        $currentfileposter = $1;
+        # Remove par2 files first, so that they don't conflict with par files
+        if ( $file =~ m{(\w.*?\.par2)}i ) {
+            $filetypes{par2} = 1;
+            $guessedfilename = $1;
+        }
+        for my $ext ( @exts ) {
+            if ( $file =~ m{( .*?\.$ext)}i ) {
+                if ( $ext eq 'par' && $file =~ m{\.part} ) {
+                    next;
+                }
+                else {
+                    $filetypes{$ext} = 1;
+                    $guessedfilename = $1;
+                }
+            }
+        }
+        $guessedfilename =~ s{.*\s}{};
+        $guessedfilename =~ s{.*"}{};
+        $guessedfilename =~ s{\&.*?\;}{};
+    }
+    elsif ( $file =~ m{<segment.*>} ) {
+        $segments++;
+        $file =~ m{bytes="(.*?)"};
+        $totalbytes += $1;
+        $bytes += $1;
+        $file =~ m{number="(.*?)"};
+        if ( $1 eq '1' ) {
+            $file =~ m{<segment.*?>(.*?)</segment>};
+            $currentfile = $1;
+        }
+    }
+    elsif ( $file =~ m{</file>} ) {
+        $files{$currentfile}{name}        = $currentfilename;
+        $files{$currentfile}{date}        = $currentfiledate;
+        $files{$currentfile}{poster}      = $currentfileposter;
+        $files{$currentfile}{segments}    = $segments;
+        $files{$currentfile}{bytes}       = $bytes;
+        $files{$currentfile}{guessedname} = $guessedfilename;
+        $files{$currentfile}{subject}     = $subject;
+
+        $widthbytes       = length($bytes)             + 1 if $widthbytes       < length($bytes);
+        $widthdate        = length($currentfiledate)   + 1 if $widthdate        < length($currentfiledate);
+        $widthname        = length($currentfilename)   + 1 if $widthname        < length($currentfilename);
+        $widthguessedname = length($guessedfilename)   + 1 if $widthguessedname < length($guessedfilename);
+        $widthguessedname = 45;
+        $widthsegments    = length($segments)          + 1 if $widthsegments    < length($segments);
+        $widthposter      = length($currentfileposter) + 1 if $widthposter      < length($currentfileposter);
+        $widthsubject     = length($subject)           + 1 if $widthsubject     < length($subject);
+
+        $infile            = undef;
+        $bytes             = undef;
+        $segments          = undef;
+        $currentfile       = undef;
+        $currentfilename   = undef;
+        $currentfiledate   = undef;
+        $currentfileposter = undef;
+        $guessedfilename   = undef;
+        $subject           = undef;
+    }
+    $file = undef;
+}
+close INPUT;
+
+my $hr = format_bytes( $totalbytes );
+my @dates = sort( keys %dates );
+my $oldest = $time{$timeformat, shift @dates};
+my $newest = $time{$timeformat, pop @dates};
+
+#print Dumper \%ENV;
+
+if ( $ENV{_} =~ m{_nzbls$} ) {
+    nzbls( $file_name );
+}
+elsif ( $ENV{_} =~ m{_nzbsize$} ) {
+    nzbsize( $file_name );
+}
+elsif ( $ENV{_} =~ m{nzbinfo$} ) {
+    nzbinfo( $file_name );
+}
+elsif ( $ENV{_} =~ m{nzbrm$} ) {
+    nzbrm( $file_name );
+}
+
+exit;
+
+sub nzbrm {
+
+}
+
+sub nzbsize {
+    my ( $file_name ) = @_;
+    my $date;
+    if ( $oldest eq $newest ) {
+        $date = "$oldest              ";
+    }
+    else {
+        $date = "$oldest - $newest ";
+    }
+    #print "Bytes: $totalbytes\n";
+    print "$date\t";
+    print "$hr\t";
+    print "$filecount\t";
+    print "$file_name\t";
+    print "\n";
+}
+
+sub nzbinfo {
+    my ( $file_name ) = @_;
+    print "NZB File: $file_name\n";
+    #print "Bytes: $totalbytes\n";
+    print "Size: $hr\n";
+    print "Number of files: $filecount\n";
+    # Handle nfo file(s) first, since they describe a post
+    print "Seems to contain .nfo file(s)\n" if $filetypes{nfo};
+    delete $filetypes{nfo};
+    print "Seems to contain the following file type(s): " . join(', ', keys %filetypes) . "\n";
+    print "Group(s): " . join(", \n\t", keys %groups) . "\n";
+    print "Poster(s): " . join(", \n\t", keys %posters) . "\n";
+    if ( $oldest eq $newest ) {
+        print "Date Posted: $oldest\n";
+    }
+    else {
+        print "Oldest Posted: " . $oldest . "\n";
+        print "Newest Posted: " . $newest . "\n";
+    }
+    print "\n";
+}
+
+sub nzbls {
+    my ( $file_name ) = @_;
+    my ( $width ) = GetTerminalSize();
+    my $filewidth = $widthsubject;
+    $filewidth = $widthguessedname if $trytoguess;
+    #print "$width\n";
+    #print Dumper \%files;
+    #print $widthbytes + $widthdate + $widthname + $widthsegments + $widthposter;
+    #print "\n";
+    my $printformat = '%-' . $widthguessedname
+        . 's %' . $widthbytes
+        . 's %' . $widthsegments
+        . 's %' . $widthdate
+        . 's %' . $widthposter . 's' . "\n";
+    #die $printformat;
+    my @formatted;
+    for my $key ( keys %files ) {
+    #    print "$files{$key}{name}\n";
+        my $filename = $files{$key}{subject};
+        $filename = $files{$key}{guessedname} if $trytoguess;
+        push @formatted, sprintf(
+            $printformat,
+            $filename,
+            format_bytes("$files{$key}{bytes}"),
+            $files{$key}{segments},
+            $time{$timeformat, $files{$key}{date}},
+            $files{$key}{poster},
+        );
+    }
+    print sort @formatted;
+}
+
+sub help {
+    print <<HELP;
+
+NZB Tools
+
+Please do not run the "nzbtools" command directly. It should be run from one of
+the following commands:
+
+nzbinfo - Display basic information about the contents of the NZB file
+nzbsize - Display dates, sizes and filecounts of NZB file or files on one line
+nzbls   - Tries to dislay filenames and sizes that the NZB will download
+nzbrm   - Removes one or more <file>s from an NZB using a pattern
+nzbget  - Downloads one or more specified <file>s from an NZB
+
+HELP
+    exit;
+}

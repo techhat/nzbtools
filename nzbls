@@ -1,0 +1,9 @@
+#!/bin/bash
+for FILE in "${@}"
+do
+    if [ "${FILE}" = "-g" ]; then
+        TRYTOGUESS='-g'
+    else
+        _nzbls ${TRYTOGUESS} "${FILE}"
+    fi
+done
