@@ -173,7 +173,6 @@ sub nzbsize {
     else {
         $date = "$oldest - $newest ";
     }
-    #print "Bytes: $totalbytes\n";
     print "$date\t";
     print "$hr\t";
     print "$filecount\t";
@@ -184,7 +183,6 @@ sub nzbsize {
 sub nzbinfo {
     my ( $file_name ) = @_;
     print "NZB File: $file_name\n";
-    #print "Bytes: $totalbytes\n";
     print "Size: $hr\n";
     print "Number of files: $filecount\n";
     # Handle nfo file(s) first, since they describe a post
@@ -208,10 +206,6 @@ sub nzbls {
     my ( $width ) = GetTerminalSize();
     my $filewidth = $widthsubject;
     $filewidth = $widthguessedname if $trytoguess;
-    #print "$width\n";
-    #print Dumper \%files;
-    #print $widthbytes + $widthdate + $widthname + $widthsegments + $widthposter;
-    #print "\n";
     my $printformat = '%-' . $widthguessedname
         . 's %' . $widthbytes
         . 's %' . $widthsegments
@@ -219,7 +213,6 @@ sub nzbls {
         . 's %-' . $widthposter . 's' . "\n";
     my @formatted;
     for my $key ( keys %files ) {
-    #    print "$files{$key}{name}\n";
         my $filename = $files{$key}{subject};
         $filename = $files{$key}{guessedname} if $trytoguess;
         push @formatted, sprintf(
