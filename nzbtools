@@ -57,6 +57,7 @@ while ( my $file = <INPUT> ) {
 
         $subject = $1;
         $subject =~ s{&#34;}{"}g;
+        $subject =~ s{.*?"(.*?)".*}{$1};
         if ( length($subject) > 44 ) {
             my $subjectlength = length($subject);
             $subject = substr($subject, 0, 21) . '...' . substr($subject, $subjectlength - 21, 21);
@@ -66,8 +67,13 @@ while ( my $file = <INPUT> ) {
         $infile = 1;
         $dates{$1} = 1 if $file =~ m{date="(.*?)"};
         $currentfiledate = $1;
-        $posters{$1} = 1 if $file =~ m{poster="(.*?)"};
+        $file =~ m{poster="(.*?)"};
         $currentfileposter = $1;
+        $currentfileposter =~ s{&#60;}{<};
+        $currentfileposter =~ s{&#62;}{>};
+        $currentfileposter =~ s{^\s+}{};
+        $currentfileposter =~ s{\s+$}{};
+        $posters{$currentfileposter} = 1;
         # Remove par2 files first, so that they don't conflict with par files
         if ( $file =~ m{(\w.*?\.par2)}i ) {
             $filetypes{par2} = 1;
@@ -209,8 +215,8 @@ sub nzbls {
         . 's %' . $widthbytes
         . 's %' . $widthsegments
         . 's %' . $widthdate
-        . 's %' . $widthposter . 's' . "\n";
-    #die $printformat;
+        . 's %-' . $widthposter . 's' . "\n";
+    warn $printformat;
     my @formatted;
     for my $key ( keys %files ) {
     #    print "$files{$key}{name}\n";
