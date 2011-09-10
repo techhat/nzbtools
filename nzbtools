@@ -114,7 +114,8 @@ while ( my $file = <INPUT> ) {
         $files{$currentfile}{guessedname} = $guessedfilename;
         $files{$currentfile}{subject}     = $subject;
 
-        $widthbytes       = length($bytes)             + 1 if $widthbytes       < length($bytes);
+        my $formattedbytes = format_bytes( $bytes );
+        $widthbytes       = length($formattedbytes)    + 1 if $widthbytes       < length($formattedbytes);
         $widthdate        = length($currentfiledate)   + 1 if $widthdate        < length($currentfiledate);
         $widthname        = length($currentfilename)   + 1 if $widthname        < length($currentfilename);
         $widthguessedname = length($guessedfilename)   + 1 if $widthguessedname < length($guessedfilename);
@@ -216,7 +217,6 @@ sub nzbls {
         . 's %' . $widthsegments
         . 's %' . $widthdate
         . 's %-' . $widthposter . 's' . "\n";
-    warn $printformat;
     my @formatted;
     for my $key ( keys %files ) {
     #    print "$files{$key}{name}\n";
